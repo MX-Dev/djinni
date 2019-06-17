@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.6.0)
 
-project(djinni_support_lib)
+project(djinni_support)
 
 include(GNUInstallDirs)
 
@@ -14,6 +14,7 @@ set(SRC_JNI
   "support-lib/jni/djinni_support.hpp"
   "support-lib/jni/Marshal.hpp"
   "support-lib/jni/djinni_support.cpp"
+  "support-lib/jni/djinni_main.cpp"
 )
 
 set(SRC_OBJC
@@ -27,40 +28,57 @@ set(SRC_OBJC
 
 option(DJINNI_STATIC_LIB "Build Djinni support library as a static library instead of dynamic (the default)." off)
 if(DJINNI_STATIC_LIB)
-  add_library(djinni_support_lib STATIC ${SRC_SHARED})
+  add_library(${PROJECT_NAME} STATIC ${SRC_SHARED})
 else()
-  add_library(djinni_support_lib SHARED ${SRC_SHARED})
+  add_library(${PROJECT_NAME} SHARED ${SRC_SHARED})
 endif()
 source_group("" FILES ${SRC_SHARED})
 
-set_target_properties(djinni_support_lib PROPERTIES
+set_target_properties(${PROJECT_NAME} PROPERTIES
   CXX_STANDARD 11
   CXX_STANDARD_REQUIRED true
   CXX_EXTENSIONS false
+  POSITION_INDEPENDENT_CODE ON
 )
+
+if(MINGW)
+  if(NOT TARGET mingw-std-threads)
+    set(MINGW_STD_THREADS_DIR ${PROJECT_BINARY_DIR}/mingw-std-threads)
+    set(MINGW_STD_THREADS_HEADER_DIR ${MINGW_STD_THREADS_DIR}/src/mingw-std-threads)
+
+    include(ExternalProject)
+    ExternalProject_Add(
+      mingw-std-threads
+      GIT_REPOSITORY https://github.com/meganz/mingw-std-threads.git
+      PREFIX ${MINGW_STD_THREADS_DIR}
+      CONFIGURE_COMMAND ""
+      BUILD_COMMAND ""
+      INSTALL_COMMAND ""
+      LOG_DOWNLOAD ON)
+  endif()
+  target_include_directories(${PROJECT_NAME} PRIVATE (${MINGW_STD_THREADS_HEADER_DIR}))
+  add_dependencies(${PROJECT_NAME} mingw-std-threads)
+endif(MINGW)
 
 # Objective-C support
 option(DJINNI_WITH_OBJC "Include the Objective-C support code in Djinni support library." off)
 if(DJINNI_WITH_OBJC)
-  target_include_directories(djinni_support_lib PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/support-lib/objc/>")
-  target_sources(djinni_support_lib PRIVATE ${SRC_OBJC})
+  target_include_directories(${PROJECT_NAME} PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/support-lib/objc/>")
+  target_sources(${PROJECT_NAME} PRIVATE ${SRC_OBJC})
   source_group("objc" FILES ${SRC_OBJC})
-  target_compile_options(djinni_support_lib PUBLIC "-fobjc-arc")
+  target_compile_options(${PROJECT_NAME} PUBLIC "-fobjc-arc")
 endif()
 
 # JNI support
 option(DJINNI_WITH_JNI "Include the JNI support code in Djinni support library." off)
 if(DJINNI_WITH_JNI)
-  if(NOT DJINNI_STATIC_LIB)
-    list(APPEND SRC_JNI "support-lib/jni/djinni_main.cpp")
-  endif()
-  target_include_directories(djinni_support_lib PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/support-lib/jni/>")
-  target_sources(djinni_support_lib PRIVATE ${SRC_JNI})
+  target_include_directories(${PROJECT_NAME} PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/support-lib/jni/>")
+  target_sources(${PROJECT_NAME} PRIVATE ${SRC_JNI})
   source_group("jni" FILES ${SRC_JNI})
   # Do not use the host's jni.h on Android as it is provided automatically by the NDK
   if(NOT ANDROID)
     find_package(JNI REQUIRED QUIET)
-    target_include_directories(djinni_support_lib PUBLIC "${JNI_INCLUDE_DIRS}")
+    target_include_directories(${PROJECT_NAME} PUBLIC "${JNI_INCLUDE_DIRS}")
   endif()
 endif()
 

@@ -4,6 +4,7 @@
 
 grant {
     permission java.net.SocketPermission "*:443", "connect,resolve";
+    permission java.net.SocketPermission "*:3128", "connect,resolve";
 
     permission java.io.FilePermission "<<ALL FILES>>", "read,write,execute,delete";
     permission java.util.PropertyPermission "*", "read,write";
